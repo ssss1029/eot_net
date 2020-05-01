@@ -20,30 +20,10 @@ class Config:
 
     # Specifies tasks to run. It maps tmux session name to the command to run in that session.
     JOBS = {
-        # # Distorting job x 5 GPUs
-        # "distort_0" : "python3 distort_imagenet_instance_9.py --total-workers=5 --worker-number=0",
-        # "distort_1" : "python3 distort_imagenet_instance_9.py --total-workers=5 --worker-number=1",
-        # "distort_2" : "python3 distort_imagenet_instance_9.py --total-workers=5 --worker-number=2",
-        # "distort_3" : "python3 distort_imagenet_instance_9.py --total-workers=5 --worker-number=3",
-        # "distort_4" : "python3 distort_imagenet_instance_9.py --total-workers=5 --worker-number=4"
-
-        # "imagenet_resnet18_tune_EDSR_006_ImageNetR_classes_lr1e-3_epochs45": "python3 tune_imagenet_distorted.py \
-        #     --data-standard=/var/tmp/namespace/hendrycks/imagenet/train \
-        #     --data-distorted=/var/tmp/sauravkadavath/distorted_datasets/EDSR_006_ImageNetR_classes \
-        #     --data-val=/var/tmp/namespace/hendrycks/imagenet/val \
-        #     --save=checkpoints/imagenet_resnet18_tune_EDSR_006_ImageNetR_classes_lr1e-3_epochs45 \
-        #     --arch=resnet18 \
-        #     --lr=0.001 \
-        #     --epochs=45",
-
-        "imagenet_resnet18_tune_Nostandard_CAE_002_EDSR_011_ImageNetR_classes_lr1e-3_epochs30": "python3 tune_imagenet_distorted.py \
-            --data-distorted=/var/tmp/sauravkadavath/distorted_datasets/CAE_002_ImageNetR_classes \
-            --data-distorted=/var/tmp/sauravkadavath/distorted_datasets/EDSR_011_ImageNetR_classes \
-            --data-val=/var/tmp/namespace/hendrycks/imagenet/val \
-            --save=checkpoints/imagenet_resnet18_tune_Nostandard_CAE_002_EDSR_011_ImageNetR_classes_lr1e-3_epochs30 \
-            --arch=resnet18 \
-            --lr=0.001 \
-            --epochs=30"
+        "train_imagenet": {
+            "num_gpus": 2,
+            "command": "python3 train_imagenet.py --data-standard=/var/tmp/namespace/hendrycks/imagenet/train --data-val=/var/tmp/namespace/hendrycks/imagenet/val --save=checkpoints/baseline_ImageNetR_classes --arch=resnet34 --lr=0.1 --epochs=100 --workers=10"
+        }
     }
 
     # Time to wait between putting jobs on GPUs (in seconds). This is useful because it might take time 
@@ -56,11 +36,11 @@ class Config:
 
 
 # Stick the shared args onto each JOB
-for key, value in Config.JOBS.items():
-    new_value = value + " " + Config.SHARED_ARGS
-    Config.JOBS[key] = new_value
+for key, job in Config.JOBS.items():
+    new_command = job['command'] + " " + Config.SHARED_ARGS
+    Config.JOBS[key]['command'] = new_command
 
-def select_gpu(GPUs):
+def select_gpu(GPUs, number):
     """
     Select the next best available GPU to run on. If nothing exists, return None
     """
@@ -68,18 +48,25 @@ def select_gpu(GPUs):
     if len(GPUs) == 0:
         return None
     GPUs = sorted(GPUs, key=lambda gpu: gpu.memoryFree)
-    return GPUs[-1]
+    return GPUs[-(number):]
 
-for index, (tmux_session_name, command) in enumerate(Config.JOBS.items()):
+for index, (tmux_session_name, job) in enumerate(Config.JOBS.items()):
+    command = job['command']
+    num_gpus = job['num_gpus']
+
     # Get the best available GPU
     print("Finding GPU for command \"{0}\"".format(command))
-    curr_gpu = select_gpu(GPUtil.getGPUs())
+    curr_gpus = select_gpu(GPUtil.getGPUs(), num_gpus)
 
-    if curr_gpu == None:
+    if curr_gpus == None or len(curr_gpus) != num_gpus:
         print("No available GPUs found. Exiting.")
         sys.exit(1)
 
-    print("SUCCESS! Found GPU id = {0} which has {1} MiB free memory".format(curr_gpu.id, curr_gpu.memoryFree))
+    print("SUCCESS! Found GPU ids = {0} which have {1} MiB free memory".format(
+        [c.id for c in curr_gpus], [c.memoryFree for c in curr_gpus]
+    ))
+
+    gpu_ids_string = ",".join([str(c.id) for c in curr_gpus])
 
     result = subprocess.run("tmux new-session -d -s {0}".format(tmux_session_name), shell=True)        
     if result.returncode != 0:
@@ -87,7 +74,7 @@ for index, (tmux_session_name, command) in enumerate(Config.JOBS.items()):
         sys.exit(result.returncode)
 
     result = subprocess.run("tmux send-keys 'CUDA_VISIBLE_DEVICES={0} {1}' C-m".format(
-        curr_gpu.id, command
+        gpu_ids_string, command
     ), shell=True)
     if result.returncode != 0:
         print("Failed to run {0} in tmux session".format(command, tmux_session_name))

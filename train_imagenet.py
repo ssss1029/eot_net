@@ -168,8 +168,8 @@ def main_worker(gpu, ngpus_per_node, args):
         print("Use GPU: {} for training".format(args.gpu))
 
     print("=> creating model '{}'".format(args.arch))
-    model = models.__dict__[args.arch](pretrained=True)
-    model.fc = torch.nn.Linear(512, 100)
+    model = models.__dict__[args.arch](pretrained=False)
+    model.fc = torch.nn.Linear(512, len(classes_chosen))
 
     # DataParallel will divide and allocate batch_size to all available GPUs
     if args.arch.startswith('alexnet') or args.arch.startswith('vgg'):
@@ -252,8 +252,6 @@ def main_worker(gpu, ngpus_per_node, args):
         f.write('epoch,train_loss,train_acc1,train_acc5,val_loss,val_acc1,val_acc5\n')
 
     for epoch in range(args.start_epoch, args.epochs):
-        if args.distributed:
-            train_sampler.set_epoch(epoch)
 
         # train for one epoch
         train_losses_avg, train_top1_avg, train_top5_avg = train(train_loader, model, criterion, optimizer, scheduler, epoch, args)
