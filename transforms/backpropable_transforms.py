@@ -121,7 +121,7 @@ def sample_transformation(max_offset=15):
     def transform(tensor):
         # tensor = TranslateX(tensor, shift_x=dx)
         # tensor = TranslateY(tensor, shift_y=dy)
-        tensor = MirrorPadOffset(tensor, dx, dy, max_offset)
+        # tensor = MirrorPadOffset(tensor, dx, dy, max_offset)
         # tensor = DownscaleBox(tensor, scale)
         if flip_x == 1:
             tensor = HorizontalFlip(tensor)
@@ -135,6 +135,15 @@ def sample_transformation(max_offset=15):
         return tensor
 
     return scale, transform
+
+class BPTransform(object):
+
+    def __init__(self):
+        pass
+
+    def __call__(self, sample):
+        scale, transform = sample_transformation()
+        return transform(sample)
 
 if __name__ == "__main__":
     from PIL import Image

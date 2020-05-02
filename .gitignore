@@ -1,4 +1,6 @@
 
+**/__pycache__/*
+
 **/*.pt
 **/*.pth
 **/*.pth.tar
