@@ -7,6 +7,8 @@ import inspect
 
 import numpy as np
 
+import torchvision
+
 """
 All transforms here are backprop-able. They expect PyTorch tensors and return PyTorch tensors
     Input:  C x H x W
@@ -72,6 +74,7 @@ def MirrorPadOffset(tensor, dx, dy, max_offset):
     """
     From E-LPIPS
     """
+    orig_size = tensor.shape[2]
     pad_bottom = max_offset - dy
     pad_left   = max_offset - dx
     pad_top    = dy
@@ -84,15 +87,27 @@ def MirrorPadOffset(tensor, dx, dy, max_offset):
     return padded
 
 def DownscaleBox(tensor, scale):
+    if scale == 1:
+        return tensor
+    
     C, H, W = tensor.shape[0], tensor.shape[1], tensor.shape[2]
+
+    res = torch.zeros((C, H, W))
 
     assert H % scale == 0
     assert W % scale == 0
     assert H == W
 
-    tensor = torch.reshape(tensor, (C, H // scale, scale, W // scale, scale))
+    new_height = H // scale
+    new_width = W // scale
+
+    tensor = torch.reshape(tensor, (C, new_height, scale, new_width, scale))
     tensor = torch.mean(tensor, dim=[2, 4])
-    return tensor
+
+    top_index = random.randint(0, H - new_height - 1)
+    left_index = random.randint(0, W - new_width - 1)
+    res[:, top_index:(top_index + new_height), left_index:(left_index + new_width)] = tensor
+    return res
 
 def SwapXY(tensor):
     return tensor.permute(0, 2, 1)
@@ -109,7 +124,7 @@ def sample_transformation(max_offset=15):
     permute_color_channels_order = [0, 1, 2]
     random.shuffle(permute_color_channels_order)
 
-    choices = np.array([1, 2, 4, 8])
+    choices = np.array([1, 2])
     probs = (1 / (choices ** 2)) / (np.sum(1 / (choices ** 2)))
     scale = np.random.choice(
         choices,
@@ -121,8 +136,9 @@ def sample_transformation(max_offset=15):
     def transform(tensor):
         # tensor = TranslateX(tensor, shift_x=dx)
         # tensor = TranslateY(tensor, shift_y=dy)
+        print(scale)
         tensor = MirrorPadOffset(tensor, dx, dy, max_offset)
-        # tensor = DownscaleBox(tensor, scale)
+        tensor = DownscaleBox(tensor, scale)
         if flip_x == 1:
             tensor = HorizontalFlip(tensor)
         if flip_y == 1:
@@ -131,18 +147,22 @@ def sample_transformation(max_offset=15):
             tensor = SwapXY(tensor)
         tensor = ColorShift(tensor, shift_c1=shift_r, shift_c2=shift_g, shift_c3=shift_b)
         tensor = Rotate(tensor, k=rotate_k)
-        tensor = PermuteColorChannels(tensor, color_channels=permute_color_channels_order)
+        # tensor = PermuteColorChannels(tensor, color_channels=permute_color_channels_order)
         return tensor
 
     return scale, transform
 
 class BPTransform(object):
 
-    def __init__(self):
+    def __init__(self, max_offset=None):
+        self.max_offset = max_offset
         pass
 
     def __call__(self, sample):
-        scale, transform = sample_transformation()
+        if self.max_offset:
+            scale, transform = sample_transformation(max_offset = self.max_offset)
+        else:
+            scale, transform = sample_transformation()
         return transform(sample)
 
 if __name__ == "__main__":
