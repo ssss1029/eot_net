@@ -98,6 +98,8 @@ parser.add_argument('--gpu', default=None, type=int,
 
 args = parser.parse_args()
 
+MAX_OFFSET = 15 # For BPTransform
+
 if os.path.exists(args.save):
     resp = "None"
     while resp.lower() not in {'y', 'n'}:
@@ -193,11 +195,11 @@ def main_worker(gpu, ngpus_per_node, args):
     train_dataset = ImageNetSubsetDataset(
         args.data_standard,
         transform=transforms.Compose([
-            transforms.RandomResizedCrop(224),
+            transforms.RandomResizedCrop(224 - MAX_OFFSET),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             normalize,
-            BPTransform()
+            BPTransform(max_offset=MAX_OFFSET)
         ])
     )
 

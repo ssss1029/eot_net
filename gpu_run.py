@@ -20,9 +20,9 @@ class Config:
 
     # Specifies tasks to run. It maps tmux session name to the command to run in that session.
     JOBS = {
-        "train_imagenet": {
+        "baseline_ImageNetR_classes": {
             "num_gpus": 2,
-            "command": "python3 train_imagenet.py --data-standard=/var/tmp/namespace/hendrycks/imagenet/train --data-val=/var/tmp/namespace/hendrycks/imagenet/val --save=checkpoints/baseline_ImageNetR_classes --arch=resnet18 --lr=0.1 --epochs=100 --workers=4"
+            "command": "python3 train_imagenet.py --data-standard=/var/tmp/namespace/hendrycks/imagenet/train --data-val=/var/tmp/namespace/hendrycks/imagenet/val --save=checkpoints/baseline_ImageNetR_classes --arch=resnet18 --lr=0.1 --epochs=100 --workers=20 --batch-size=512"
         }
     }
 

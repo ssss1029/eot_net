@@ -136,7 +136,6 @@ def sample_transformation(max_offset=15):
     def transform(tensor):
         # tensor = TranslateX(tensor, shift_x=dx)
         # tensor = TranslateY(tensor, shift_y=dy)
-        print(scale)
         tensor = MirrorPadOffset(tensor, dx, dy, max_offset)
         tensor = DownscaleBox(tensor, scale)
         if flip_x == 1:
