@@ -22,7 +22,7 @@ class Config:
     JOBS = {
         "train_imagenet": {
             "num_gpus": 2,
-            "command": "python3 train_imagenet.py --data-standard=/var/tmp/namespace/hendrycks/imagenet/train --data-val=/var/tmp/namespace/hendrycks/imagenet/val --save=checkpoints/baseline_ImageNetR_classes --arch=resnet34 --lr=0.1 --epochs=100 --workers=10"
+            "command": "python3 train_imagenet.py --data-standard=/var/tmp/namespace/hendrycks/imagenet/train --data-val=/var/tmp/namespace/hendrycks/imagenet/val --save=checkpoints/baseline_ImageNetR_classes --arch=resnet18 --lr=0.1 --epochs=100 --workers=4"
         }
     }
 
