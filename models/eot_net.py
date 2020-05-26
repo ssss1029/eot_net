@@ -17,7 +17,7 @@ model_names = sorted(name for name in models.__dict__
     and callable(models.__dict__[name]))
 
 class EOT_Net(nn.Module):
-    def __init__(self, arch, use_eot, num_transforms, num_classes):
+    def __init__(self, arch, use_eot, num_transforms, num_classes, max_offset_transforms=15):
         super(EOT_Net, self).__init__()
         
         assert arch in model_names, f"Unrecognized architecture: {arch}. I only know about {str(model_names)}"
@@ -26,6 +26,7 @@ class EOT_Net(nn.Module):
         self.use_eot = use_eot
         self.num_transforms = num_transforms
         self.num_classes = num_classes
+        self.max_offset_transforms = max_offset_transforms
 
         print("=> Constructing EOT_Net with arch = '{}'".format(arch))
         model = models.__dict__[arch](pretrained=False)
@@ -51,18 +52,18 @@ class EOT_Net(nn.Module):
 
         # Apply transformations
         if _use_eot:
-            new_batch = torch.zeros(batch.shape[0] * self.num_transforms, batch.shape[1], batch.shape[2], batch.shape[3])
+            new_batch = torch.zeros(batch.shape[0] * self.num_transforms, batch.shape[1], batch.shape[2] + self.max_offset_transforms, batch.shape[3] + self.max_offset_transforms)
             index = 0
             for image in batch:
                 for _ in range(self.num_transforms):
-                    scale, T = sample_transformation()
-                    new_batch[index] = T(image)
+                    scale, T = sample_transformation(max_offset=self.max_offset_transforms)
+                    new_batch[index] = T(image.clone())
                     index += 1
         else:
             new_batch = batch
         
         new_batch = new_batch.cuda()
-
+        # print(new_batch.shape)
 
         if _use_eot:
             # Need to take the expectation over transforms here
@@ -71,6 +72,7 @@ class EOT_Net(nn.Module):
 
             avg_outs = []
             for elem in out:
+                elem = F.log_softmax(elem, dim=1)
                 avg_outs.append(torch.mean(elem, dim=0, keepdim=False))
             
             return torch.stack(avg_outs, dim=0)

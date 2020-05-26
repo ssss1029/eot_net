@@ -9,6 +9,19 @@ import numpy as np
 
 import torchvision
 
+# Useful for undoing thetorchvision.transforms.Normalize() 
+# From https://discuss.pytorch.org/t/simple-way-to-inverse-transform-normalization/4821
+class UnNormalize(object):
+    def __init__(self, mean, std):
+        self.mean = mean
+        self.std = std
+
+    def __call__(self, tensor):
+        # The normalize code -> t.sub_(m).div_(s)
+        for t, m, s in zip(tensor, self.mean, self.std):
+            t.mul_(s).add_(m)
+        return tensor
+
 """
 All transforms here are backprop-able. They expect PyTorch tensors and return PyTorch tensors
     Input:  C x H x W
